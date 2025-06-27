@@ -20,8 +20,6 @@ def main():
         if len(lmList) != 0:
             # tip of index finger
             x1,y1=lmList[8][1:]
-            # tip of middle finger
-            x2,y2=lmList[12][1:]
 
             fingers = detector.fingersUp()
             if fingers[1] and fingers[2]==False:
