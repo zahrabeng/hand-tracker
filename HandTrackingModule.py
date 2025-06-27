@@ -17,6 +17,7 @@ class HandDetector():
             min_tracking_confidence=self.track_con
         )
         self.mpDraw = mp.solutions.drawing_utils
+        self.tipIds = [4, 8, 12, 16,20]  # the value of the tip of each of the finger is stored int his list except thumb which serves a special case
 
     def find_hands(self, img, draw=True):
         imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -29,37 +30,31 @@ class HandDetector():
         return img
 
     def findPosition(self, img, handNo=0, draw=True):
-        lmList = []
+        self.lmList = []
         if self.results.multi_hand_landmarks:
             myHand = self.results.multi_hand_landmarks[handNo]
             for id, lm in enumerate(myHand.landmark):
                 h, w, c = img.shape
                 cx, cy = int(lm.x * w), int(lm.y * h)
-                lmList.append([id, cx, cy])
+                self.lmList.append([id, cx, cy])
                 if draw:
                     cv2.circle(img, (cx, cy), 15, (0, 255, 236), cv2.FILLED)
-        return lmList
+        return self.lmList
 
+    def fingersUp(self):
+        fingers = []
 
-def main():
-    pTime = 0
-    cTime = 0
-    cap = cv2.VideoCapture(0)
-    detector = HandDetector()
+        # Thumb
+        if self.lmList[self.tipIds[0]][1] < self.lmList[self.tipIds[0]-1][1]:
+            fingers.append(1)
+        else:
+            fingers.append(0)
 
-    while True:
-        success, img = cap.read()
-        img = detector.find_hands(img)
-        lmList = detector.findPosition(img)
-        if len(lmList) != 0:
-            print(lmList[4])
-        cTime = time.time()
-        fps = 1/(cTime-pTime)
-        pTime = cTime
+        # 4 Fingers
+        for id in range(1,5):
+            if self.lmList[self.tipIds[id]][2] < self.lmList[self.tipIds[id]-2][2]:
+                fingers.append(1)
+            else:
+                fingers.append(0)
 
-        cv2.putText(img, f'{int(fps)} fps', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 3,(0, 255, 236), 3)
-        cv2.imshow("Image", img)
-        cv2.waitKey(1)
-
-if __name__ == "__main__":
-    main()
+        return fingers
