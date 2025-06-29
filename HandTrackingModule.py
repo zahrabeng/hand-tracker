@@ -1,60 +1,63 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 import time
 
+
 class HandDetector():
-    def __init__(self, mode=False, max_hands=2, detection_con=0.5, track_con=0.5):
+    def __init__(self, mode=False, max_hands=2, detection_confidence=0.5, tracking_confidence=0.5):
         self.mode = mode
         self.max_hands = max_hands
-        self.detection_con = detection_con
-        self.track_con = track_con
+        self.detection_confidence = detection_confidence
+        self.tracking_confidence = tracking_confidence
 
-        self.mpHands = mp.solutions.hands
-        self.hands = self.mpHands.Hands(
+        self.mp_hands = mp.solutions.hands
+        self.hands = self.mp_hands.Hands(
             static_image_mode=self.mode,
             max_num_hands=self.max_hands,
-            min_detection_confidence=self.detection_con,
-            min_tracking_confidence=self.track_con
+            min_detection_confidence=self.detection_confidence,
+            min_tracking_confidence=self.tracking_confidence
         )
-        self.mpDraw = mp.solutions.drawing_utils
-        self.tipIds = [4, 8, 12, 16,20]  # the value of the tip of each of the finger is stored int his list except thumb which serves a special case
+        self.mp_draw = mp.solutions.drawing_utils
+        self.finger_tip_ids = [4, 8, 12, 16, 20]  # Tip landmark IDs for thumb to pinky
 
-    def find_hands(self, img, draw=True):
-        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(imgRGB)
+    def find_hands(self, image, draw=True):
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(image_rgb)
 
         if self.results.multi_hand_landmarks:
-            for handLms in self.results.multi_hand_landmarks:
+            for hand_landmarks in self.results.multi_hand_landmarks:
                 if draw:
-                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
-        return img
+                    self.mp_draw.draw_landmarks(image, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
+        return image
 
-    def findPosition(self, img, handNo=0, draw=True):
-        self.lmList = []
+    def find_hand_landmarks(self, image, hand_index=0, draw=True):
+        self.landmark_list = []
         if self.results.multi_hand_landmarks:
-            myHand = self.results.multi_hand_landmarks[handNo]
-            for id, lm in enumerate(myHand.landmark):
-                h, w, c = img.shape
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                self.lmList.append([id, cx, cy])
+            selected_hand = self.results.multi_hand_landmarks[hand_index]
+            for id, landmark in enumerate(selected_hand.landmark):
+                height, width, _ = image.shape
+                pixel_x, pixel_y = int(landmark.x * width), int(landmark.y * height)
+                self.landmark_list.append([id, pixel_x, pixel_y])
                 if draw:
-                    cv2.circle(img, (cx, cy), 15, (0, 255, 236), cv2.FILLED)
-        return self.lmList
+                    cv2.circle(image, (pixel_x, pixel_y), 15, (0, 255, 236), cv2.FILLED)
+        return self.landmark_list
 
-    def fingersUp(self):
+    def get_fingers_up(self):
         fingers = []
 
-        # Thumb
-        if self.lmList[self.tipIds[0]][1] < self.lmList[self.tipIds[0]-1][1]:
+        # Thumb (check horizontal direction)
+        if self.landmark_list[self.finger_tip_ids[0]][1] < self.landmark_list[self.finger_tip_ids[0] - 1][1]:
             fingers.append(1)
         else:
             fingers.append(0)
 
-        # 4 Fingers
-        for id in range(1,5):
-            if self.lmList[self.tipIds[id]][2] < self.lmList[self.tipIds[id]-2][2]:
+        # Other 4 fingers (check vertical direction)
+        for i in range(1, 5):
+            if self.landmark_list[self.finger_tip_ids[i]][2] < self.landmark_list[self.finger_tip_ids[i] - 2][2]:
                 fingers.append(1)
             else:
                 fingers.append(0)
 
         return fingers
+
